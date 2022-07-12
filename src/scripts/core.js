@@ -163,7 +163,7 @@ class BlackjackGame {
         for (const card of this.dealerHand) {
             html += `<img class="card" src="${card.imagePath()}"/>`;
         }
-        document.getElementById('dealerHand').innerHTML = html;
+        $('#dealerHand').html(html);
     }
 
     updatePlayerGraphics() {
@@ -173,7 +173,7 @@ class BlackjackGame {
         for (const card of this.playerHand) {
             html += `<img class="card" src="${card.imagePath()}"/>`;
         }
-        document.getElementById('playerHand').innerHTML = html;
+        $('#playerHand').html(html);
     }
 
     isBust(hand) {
@@ -215,7 +215,7 @@ class BlackjackGame {
     }
 
     setOutcome(str) {
-        document.getElementById('mainLog').innerText = str;
+        $('#mainLog').text(str);
     }
 
     dealerPlay() {
