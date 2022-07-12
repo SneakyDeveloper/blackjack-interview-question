@@ -1,127 +1,10 @@
 $('#ui-bar').remove();
 $(document.head).find('#style-ui-bar').remove();
 
-// Card represents a single card, with validated values and an easy way to get
-// the path for its corresponding image.
-class Card {
-    constructor(value, suit) {
-        this.value = value;
-        this.suit = suit;
-        this._validate();
-    }
-
-    toString() {
-        let prefix;
-        switch (this.value) {
-            case 2: case 3: case 4: case 5: case 6:
-            case 7: case 8: case 9: case 10:
-                prefix = this.value;
-                break;
-            case 11: case 12: case 13: case 14:
-                prefix = Card.SPECIAL_CARD_NAMES[this.value - 11];
-                break;
-        }
-        // Could be solved through renaming the files, but that's no good
-        // if the images are used elsewhere out of my control.
-        const shouldInclude2 = isNaN(prefix) && prefix !== 'ace';
-        return `${prefix}_of_${this.suit}${shouldInclude2 ? '2' : ''}`;
-    }
-
-    imagePath() {
-        return `resources/images/deck/${this.toString()}.png`;
-    }
-
-    _validate() {
-        if (isNaN(this.value) || this.value < 2 || this.value > 14 || this.value !== Math.floor(this.value)) {
-            throw   `Validate Card failed: Invalid value for property 'value', ` +
-                    `should be an integer in the range 2 - 14 (inclusive), was: ${this.value}`;
-        }
-
-        const allowedSuits = Object.values(Card.SUITS);
-        if (!allowedSuits.some(s => s === this.suit)) {
-            const values = allowedSuits.map(s => `'${s}'`).join(', ');
-            throw   `Validate Card failed: Invalid value for property 'suit', ` +
-                    `should be one of ${values}, was: '${this.suit}'. Make ` +
-                    `sure to use the SUITS object when assigning the suit.`;
-        }
-    }
-}
-
-Card.SUITS = {
-    HEARTS: 'hearts',
-    DIAMONDS: 'diamonds',
-    CLUBS: 'clubs',
-    SPADES: 'spades',
-};
-Card.SPECIAL_CARD_NAMES = ['jack', 'queen', 'king', 'ace'];
-
-// Deck represents a single or multiple decks of cards, with validation
-// and an easy way to shuffle it.
-class Deck {
-    constructor(numDecks = 1) {
-        this._validate(numDecks);
-
-        this.cards = [];
-        this.drawn = [];
-
-        const suits = Object.values(Card.SUITS);
-        for (let deck = 0; deck < numDecks; deck++) {
-            for (let value = 2; value <= 14; value++) {
-                for (const suit of suits) {
-                    this.cards.push(new Card(value, suit));
-                }
-            }
-        }
-    }
-
-    reset() {
-        this.cards.push(...this.drawn);
-        this.drawn = [];
-        this.shuffle();
-    }
-
-    // shuffle shuffles the remaining cards.
-    //
-    // If you want to put the drawn cards back in and shuffle, use reset instead.
-    shuffle(numTimes = 1) {
-        if (isNaN(numTimes) || numTimes < 0) {
-            throw   `Invalid value for argument 'numTimes', should be a ` +
-                    `non-negative integer, was ${numTimes}`;
-        }
-
-        for (let i = 0; i < numTimes; i++) {
-            // Fisher-Yates shuffle: https://medium.com/@oldwestaction/randomness-is-hard-e085decbcbb2
-            for (let i = this.cards.length - 1; i > 0; i--) {
-                // + 1 because Math.random generates [0, 1)
-                // [ = inclusive, ) = exclusive, and we want the range [0, i].
-                const swapIdx = Math.floor(Math.random() * (i + 1)); 
-                const card = this.cards[i];
-                this.cards[i] = this.cards[swapIdx];
-                this.cards[swapIdx] = card;
-            }
-        }
-    }
-
-    // draw draws a card, resetting the deck if it runs out of cards.
-    draw() {
-        if (this.cards.length === 0) {
-            this.reset();
-        }
-        const card = this.cards.pop();
-        this.drawn.push(card);
-        return card;
-    }
-
-    _validate(numDecks) {
-        if (isNaN(numDecks) || numDecks < 1) {
-            throw   `Validate Deck failed: Invalid value for argument ` +
-                    `'numDecks', should be a positive integer, was: ${numDecks}.`;
-        }
-    }
-}
-
 // BlackjackGame exposes three methods to play a one-person blackjack game.
 //   deal, hit, and stay.
+//
+// Currently requires two HTML elements, with the IDs playerHand and dealerHand.
 class BlackjackGame {
     constructor(numDecks, dealerHitsSoft17 = false) {
         this.deck = new Deck(numDecks);
@@ -311,3 +194,122 @@ class BlackjackGame {
 }
 
 window.BlackjackGame = BlackjackGame;
+
+// Deck represents a single or multiple decks of cards, with validation
+// and an easy way to shuffle it.
+class Deck {
+    constructor(numDecks = 1) {
+        this._validate(numDecks);
+
+        this.cards = [];
+        this.drawn = [];
+
+        const suits = Object.values(Card.SUITS);
+        for (let deck = 0; deck < numDecks; deck++) {
+            for (let value = 2; value <= 14; value++) {
+                for (const suit of suits) {
+                    this.cards.push(new Card(value, suit));
+                }
+            }
+        }
+    }
+
+    reset() {
+        this.cards.push(...this.drawn);
+        this.drawn = [];
+        this.shuffle();
+    }
+
+    // shuffle shuffles the remaining cards.
+    //
+    // If you want to put the drawn cards back in and shuffle, use reset instead.
+    shuffle(numTimes = 1) {
+        if (isNaN(numTimes) || numTimes < 0) {
+            throw   `Invalid value for argument 'numTimes', should be a ` +
+                    `non-negative integer, was ${numTimes}`;
+        }
+
+        for (let i = 0; i < numTimes; i++) {
+            // Fisher-Yates shuffle: https://medium.com/@oldwestaction/randomness-is-hard-e085decbcbb2
+            for (let i = this.cards.length - 1; i > 0; i--) {
+                // + 1 because Math.random generates [0, 1)
+                // [ = inclusive, ) = exclusive, and we want the range [0, i].
+                const swapIdx = Math.floor(Math.random() * (i + 1)); 
+                const card = this.cards[i];
+                this.cards[i] = this.cards[swapIdx];
+                this.cards[swapIdx] = card;
+            }
+        }
+    }
+
+    // draw draws a card, resetting the deck if it runs out of cards.
+    draw() {
+        if (this.cards.length === 0) {
+            this.reset();
+        }
+        const card = this.cards.pop();
+        this.drawn.push(card);
+        return card;
+    }
+
+    _validate(numDecks) {
+        if (isNaN(numDecks) || numDecks < 1) {
+            throw   `Validate Deck failed: Invalid value for argument ` +
+                    `'numDecks', should be a positive integer, was: ${numDecks}.`;
+        }
+    }
+}
+
+// Card represents a single card, with validated values and an easy way to get
+// the path for its corresponding image.
+class Card {
+    constructor(value, suit) {
+        this.value = value;
+        this.suit = suit;
+        this._validate();
+    }
+
+    toString() {
+        let prefix;
+        switch (this.value) {
+            case 2: case 3: case 4: case 5: case 6:
+            case 7: case 8: case 9: case 10:
+                prefix = this.value;
+                break;
+            case 11: case 12: case 13: case 14:
+                prefix = Card.SPECIAL_CARD_NAMES[this.value - 11];
+                break;
+        }
+        // Could be solved through renaming the files, but that's no good
+        // if the images are used elsewhere out of my control.
+        const shouldInclude2 = isNaN(prefix) && prefix !== 'ace';
+        return `${prefix}_of_${this.suit}${shouldInclude2 ? '2' : ''}`;
+    }
+
+    imagePath() {
+        return `resources/images/deck/${this.toString()}.png`;
+    }
+
+    _validate() {
+        if (isNaN(this.value) || this.value < 2 || this.value > 14 || this.value !== Math.floor(this.value)) {
+            throw   `Validate Card failed: Invalid value for property 'value', ` +
+                    `should be an integer in the range 2 - 14 (inclusive), was: ${this.value}`;
+        }
+
+        const allowedSuits = Object.values(Card.SUITS);
+        if (!allowedSuits.some(s => s === this.suit)) {
+            const values = allowedSuits.map(s => `'${s}'`).join(', ');
+            throw   `Validate Card failed: Invalid value for property 'suit', ` +
+                    `should be one of ${values}, was: '${this.suit}'. Make ` +
+                    `sure to use the SUITS object when assigning the suit.`;
+        }
+    }
+}
+
+Card.SUITS = {
+    HEARTS: 'hearts',
+    DIAMONDS: 'diamonds',
+    CLUBS: 'clubs',
+    SPADES: 'spades',
+};
+Card.SPECIAL_CARD_NAMES = ['jack', 'queen', 'king', 'ace'];
