@@ -1,6 +1,8 @@
 $('#ui-bar').remove();
 $(document.head).find('#style-ui-bar').remove();
 
+// Card represents a single card, with validated values and an easy way to get
+// the path for its corresponding image.
 class Card {
     constructor(value, suit) {
         this.value = value;
@@ -11,7 +13,8 @@ class Card {
     toString() {
         let prefix;
         switch (this.value) {
-            case 2: case 3: case 4: case 5: case 6: case 7: case 8: case 9: case 10:
+            case 2: case 3: case 4: case 5: case 6:
+            case 7: case 8: case 9: case 10:
                 prefix = this.value;
                 break;
             case 11: case 12: case 13: case 14:
@@ -52,6 +55,8 @@ Card.SUITS = {
 };
 Card.SPECIAL_CARD_NAMES = ['jack', 'queen', 'king', 'ace'];
 
+// Deck represents a single or multiple decks of cards, with validation
+// and an easy way to shuffle it.
 class Deck {
     constructor(numDecks = 1) {
         this._validate(numDecks);
@@ -76,6 +81,7 @@ class Deck {
     }
 
     // shuffle shuffles the remaining cards.
+    //
     // If you want to put the drawn cards back in and shuffle, use reset instead.
     shuffle(numTimes = 1) {
         if (isNaN(numTimes) || numTimes < 0) {
@@ -96,6 +102,7 @@ class Deck {
         }
     }
 
+    // draw draws a card, resetting the deck if it runs out of cards.
     draw() {
         if (this.cards.length === 0) {
             this.reset();
@@ -113,6 +120,8 @@ class Deck {
     }
 }
 
+// BlackjackGame exposes three methods to play a one-person blackjack game.
+//   deal, hit, and stay.
 class BlackjackGame {
     constructor(numDecks, dealerHitsSoft17 = false) {
         this.deck = new Deck(numDecks);
@@ -212,10 +221,10 @@ class BlackjackGame {
     // if the player busts.
     _playerDraw() {
         this.playerHand.push(this.deck.draw());
+        this._updatePlayerGraphics();
         if (this._isBust(this.playerHand)) {
             this.stay();
         }
-        this._updatePlayerGraphics();
     }
 
     // dealerDraw draws a card for the dealer.
