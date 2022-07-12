@@ -434,3 +434,7 @@ ul {
     overflow-y: auto;
 }
 
+.card {
+    height: 15%;
+    margin: 0.1rem 0.1rem;
+}

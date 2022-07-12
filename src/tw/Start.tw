@@ -12,11 +12,19 @@ Backjack Interview
 :: Start [black]
 <<nobr>>
 
+<<set $blackjack = new BlackjackGame(6)>>
+
 <div id="background" class="paper_border notext">
     <div class="main container fourCol threeRow" style="height: 100%; width: 100%;">
         <div class="subbackground mainLogContainer">
-             <div id="mainLogImageContainer" class="mainLogImageContainer">
-                <div id="mainLogImage" class="mainLogImage"></div>
+            <div id="mainLogImageContainer" class="mainLogImageContainer">
+                <div id="mainLogImage" class="mainLogImage">
+                <span id="dealerHand">
+                </span>
+                <br/>
+                <span id="playerHand">
+                </span>
+                </div>
             </div>
             <div id="mainLog" class="mainLog">
                 <b>
@@ -49,13 +57,12 @@ Backjack Interview
 
         <div id="action_bar" class="subbackground" style="grid-row: 3 / span 1; grid-column: 1 / span 3">
             <div id="buttons" class="action container row col longbutton fiveQuarters" style="--rows: 4; --cols: 4">
-                <<button "Deal">><</button>>
-                <<button "Hit">><</button>>
-                <<button "Stay">><</button>>
+                <<button "Deal">> <<run $blackjack.deal()>> <</button>>
+                <<button "Hit">> <<run $blackjack.hit()>> <</button>>
+                <<button "Stay">> <<run $blackjack.stay()>> <</button>>
             </div>
         </div>
     </div>
 </div>
-
 
 <</nobr>>
