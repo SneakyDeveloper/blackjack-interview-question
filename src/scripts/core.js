@@ -1,33 +1,11 @@
 $('#ui-bar').remove();
 $(document.head).find('#style-ui-bar').remove();
 
-const SUITS = {
-    HEARTS: 'hearts',
-    DIAMONDS: 'diamonds',
-    CLUBS: 'clubs',
-    SPADES: 'spades',
-};
-
 class Card {
     constructor(value, suit) {
         this.value = value;
         this.suit = suit;
-        this.validate();
-    }
-
-    validate() {
-        if (isNaN(this.value) || this.value < 2 || this.value > 14 || this.value !== Math.floor(this.value)) {
-            throw   `Validate Card failed: Invalid value for property 'value', ` +
-                    `should be an integer in the range 2 - 14 (inclusive), was: ${this.value}`;
-        }
-
-        const allowedSuits = Object.values(SUITS);
-        if (!allowedSuits.some(s => s === this.suit)) {
-            const values = allowedSuits.map(s => `'${s}'`).join(', ');
-            throw   `Validate Card failed: Invalid value for property 'suit', ` +
-                    `should be one of ${values}, was: '${this.suit}'. Make ` +
-                    `sure to use the SUITS object when assigning the suit.`;
-        }
+        this._validate();
     }
 
     toString() {
@@ -49,21 +27,39 @@ class Card {
     imagePath() {
         return `resources/images/deck/${this.toString()}.png`;
     }
+
+    _validate() {
+        if (isNaN(this.value) || this.value < 2 || this.value > 14 || this.value !== Math.floor(this.value)) {
+            throw   `Validate Card failed: Invalid value for property 'value', ` +
+                    `should be an integer in the range 2 - 14 (inclusive), was: ${this.value}`;
+        }
+
+        const allowedSuits = Object.values(Card.SUITS);
+        if (!allowedSuits.some(s => s === this.suit)) {
+            const values = allowedSuits.map(s => `'${s}'`).join(', ');
+            throw   `Validate Card failed: Invalid value for property 'suit', ` +
+                    `should be one of ${values}, was: '${this.suit}'. Make ` +
+                    `sure to use the SUITS object when assigning the suit.`;
+        }
+    }
 }
 
+Card.SUITS = {
+    HEARTS: 'hearts',
+    DIAMONDS: 'diamonds',
+    CLUBS: 'clubs',
+    SPADES: 'spades',
+};
 Card.SPECIAL_CARD_NAMES = ['jack', 'queen', 'king', 'ace'];
 
 class Deck {
     constructor(numDecks = 1) {
-        if (isNaN(numDecks) || numDecks < 1) {
-            throw   `Validate Deck failed: Invalid value for argument ` +
-                    `'numDecks', should be a positive integer, was: ${numDecks}.`;
-        }
+        this._validate(numDecks);
 
         this.cards = [];
         this.drawn = [];
 
-        const suits = Object.values(SUITS);
+        const suits = Object.values(Card.SUITS);
         for (let deck = 0; deck < numDecks; deck++) {
             for (let value = 2; value <= 14; value++) {
                 for (const suit of suits) {
@@ -79,6 +75,8 @@ class Deck {
         this.shuffle();
     }
 
+    // shuffle shuffles the remaining cards.
+    // If you want to put the drawn cards back in and shuffle, use reset instead.
     shuffle(numTimes = 1) {
         if (isNaN(numTimes) || numTimes < 0) {
             throw   `Invalid value for argument 'numTimes', should be a ` +
@@ -86,6 +84,7 @@ class Deck {
         }
 
         for (let i = 0; i < numTimes; i++) {
+            // Fisher-Yates shuffle: https://medium.com/@oldwestaction/randomness-is-hard-e085decbcbb2
             for (let i = this.cards.length - 1; i > 0; i--) {
                 // + 1 because Math.random generates [0, 1)
                 // [ = inclusive, ) = exclusive, and we want the range [0, i].
@@ -105,6 +104,13 @@ class Deck {
         this.drawn.push(card);
         return card;
     }
+
+    _validate(numDecks) {
+        if (isNaN(numDecks) || numDecks < 1) {
+            throw   `Validate Deck failed: Invalid value for argument ` +
+                    `'numDecks', should be a positive integer, was: ${numDecks}.`;
+        }
+    }
 }
 
 class BlackjackGame {
@@ -116,34 +122,17 @@ class BlackjackGame {
         this.hitsSoft17 = dealerHitsSoft17;
     }
 
-    // playerDraw draws a card for the player, and ends the game
-    // if the player busts.
-    playerDraw() {
-        this.playerHand.push(this.deck.draw());
-        if (this.isBust(this.playerHand)) {
-            this.stay();
-        }
-        this.updatePlayerGraphics();
-    }
-
-    // dealerDraw draws a card for the dealer.
-    dealerDraw() {
-        this.dealerHand.push(this.deck.draw());
-        this.updateDealerGraphics();
-    }
-
-    // deal begins a new round of blackjack.
     deal() {
         if (!this.playing) {
-            this.reset();
+            this._reset();
             this.playing = true;
 
-            this.playerDraw();
-            this.playerDraw();
+            this._playerDraw();
+            this._playerDraw();
 
-            this.dealerDraw();
+            this._dealerDraw();
 
-            const playerNatural = this.calcHand(this.playerHand).score === 21 && this.playerHand.length === 2;
+            const playerNatural = this._calcHand(this.playerHand).score === 21 && this.playerHand.length === 2;
             if (playerNatural) {
                 this.stay();
             }
@@ -152,32 +141,8 @@ class BlackjackGame {
 
     hit() {
         if (this.playing) {
-            this.playerDraw();
+            this._playerDraw();
         }
-    }
-
-    updateDealerGraphics() {
-        const hand = this.calcHand(this.dealerHand);
-        const lowScore = hand.score !== hand.lowScore ? ` (${hand.lowScore})` : '';
-        let html = `Dealer's hand: ${hand.score}${lowScore}<br/>`;
-        for (const card of this.dealerHand) {
-            html += `<img class="card" src="${card.imagePath()}"/>`;
-        }
-        $('#dealerHand').html(html);
-    }
-
-    updatePlayerGraphics() {
-        const hand = this.calcHand(this.playerHand);
-        const lowScore = hand.score !== hand.lowScore ? ` (${hand.lowScore})` : '';
-        let html = `Player's hand: ${hand.score}${lowScore}<br/>`;
-        for (const card of this.playerHand) {
-            html += `<img class="card" src="${card.imagePath()}"/>`;
-        }
-        $('#playerHand').html(html);
-    }
-
-    isBust(hand) {
-        return this.calcHand(hand).score > 21; 
     }
 
     stay() {
@@ -187,42 +152,38 @@ class BlackjackGame {
 
         this.playing = false;
 
-        const playerScore = this.calcHand(this.playerHand).score;
+        const playerScore = this._calcHand(this.playerHand).score;
         if (playerScore > 21) {
-            this.setOutcome('Player busted! Player loses.');
+            this._setOutcome('Player busted! Player loses.');
             return;
         }
 
         const playerNatural = playerScore === 21 && this.playerHand.length === 2;
 
-        this.dealerPlay();
-        const dealerScore = this.calcHand(this.dealerHand).score;
+        this._dealerPlay();
+        const dealerScore = this._calcHand(this.dealerHand).score;
         const dealerNatural = dealerScore === 21 && this.dealerHand.length === 2;
 
         if (playerNatural && !dealerNatural) {
-            this.setOutcome('Player natural! Player wins.');
+            this._setOutcome('Player natural! Player wins.');
         } else if (!playerNatural && dealerNatural) {
-            this.setOutcome('Dealer natural! Player loses.');
+            this._setOutcome('Dealer natural! Player loses.');
         } else if (dealerScore > 21) {
-            this.setOutcome('Dealer busted! Player wins.');
+            this._setOutcome('Dealer busted! Player wins.');
         } else if (playerScore > dealerScore) {
-            this.setOutcome('Player wins.');
+            this._setOutcome('Player wins.');
         } else if (playerScore < dealerScore) {
-            this.setOutcome('Player loses.');
+            this._setOutcome('Player loses.');
         } else {
-            this.setOutcome(`It's a draw!`);
+            this._setOutcome(`It's a draw!`);
         }
     }
 
-    setOutcome(str) {
-        $('#mainLog').text(str);
-    }
+    _dealerPlay() {
+        this._dealerDraw();
 
-    dealerPlay() {
-        this.dealerDraw();
-
-        const playerNatural = this.calcHand(this.playerHand).score === 21 && this.playerHand === 2;
-        let hand = this.calcHand(this.dealerHand);
+        const playerNatural = this._calcHand(this.playerHand).score === 21 && this.playerHand === 2;
+        let hand = this._calcHand(this.dealerHand);
         const dealerNatural = hand.score === 21 && this.dealerHand.length === 2;
         if (playerNatural || dealerNatural) {
             return;
@@ -236,18 +197,67 @@ class BlackjackGame {
             }
             
             if (score < 17) {
-                this.dealerDraw();
+                this._dealerDraw();
             } else if (this.hitsSoft17 && score === 17 && hand.aces > 0) {
-                this.dealerDraw();
+                this._dealerDraw();
             } else {
                 break;
             }
 
-            hand = this.calcHand(this.dealerHand);
+            hand = this._calcHand(this.dealerHand);
         }
     }
 
-    calcHand(hand) {
+    // playerDraw draws a card for the player, and ends the game
+    // if the player busts.
+    _playerDraw() {
+        this.playerHand.push(this.deck.draw());
+        if (this._isBust(this.playerHand)) {
+            this.stay();
+        }
+        this._updatePlayerGraphics();
+    }
+
+    // dealerDraw draws a card for the dealer.
+    _dealerDraw() {
+        this.dealerHand.push(this.deck.draw());
+        this._updateDealerGraphics();
+    }
+
+    _updatePlayerGraphics() {
+        this._updateGraphics("Player", this.playerHand, '#playerHand');
+    }
+
+    _updateDealerGraphics() {
+        this._updateGraphics("Dealer", this.dealerHand, '#dealerHand');
+    }
+
+    _updateGraphics(owner, hand, selector) {
+        const html = this._generateHandHtml(owner, hand);
+        $(selector).html(html);
+    }
+
+    // generateHandHtml generates HTML to display the score and cards of a hand,
+    // displaying the hard value of the hand in parentheses if it's a soft hand.
+    _generateHandHtml(owner, hand) {
+        const calcHand = this._calcHand(hand);
+        const lowScore = calcHand.score !== calcHand.lowScore ? ` (${calcHand.lowScore})` : '';
+        let html = `${owner}'s hand: ${calcHand.score}${lowScore}<br/>`;
+        for (const card of hand) {
+            html += `<img class="card" src="${card.imagePath()}"/>`;
+        }
+        return html;
+    }
+
+    _isBust(hand) {
+        return this._calcHand(hand).score > 21; 
+    }
+
+    _setOutcome(str) {
+        $('#mainLog').text(str);
+    }
+
+    _calcHand(hand) {
         let aces = 0;
         let score = 0;
         let lowScore = 0;
@@ -277,17 +287,17 @@ class BlackjackGame {
         return { score, lowScore, aces };
     }
 
-    reset() {
+    _reset() {
         this.playing = false;
         this.playerHand = [];
         this.dealerHand = [];
         if (this.deck.cards.length <= this.reshuffleAt) {
-            this.deck.shuffle();
+            this.deck.reset();
         }
 
-        this.updatePlayerGraphics();
-        this.updateDealerGraphics();
-        this.setOutcome('');
+        this._updatePlayerGraphics();
+        this._updateDealerGraphics();
+        this._setOutcome('');
     }
 }
 
