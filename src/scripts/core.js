@@ -7,64 +7,63 @@ $(document.head).find('#style-ui-bar').remove();
 // Currently requires two HTML elements, with the IDs playerHand and dealerHand.
 class BlackjackGame {
     constructor(numDecks, dealerHitsSoft17 = false) {
-        this.deck = new Deck(numDecks);
-        this.deck.shuffle();
+        this._player = new Hand('Player');
+        this._dealer = new Hand('Dealer');
+
+        this._deck = new Deck(numDecks);
+        this._deck.shuffle();
         // Reshuffle when there's only a quarter of the deck left.
-        this.reshuffleAt = Math.floor((numDecks * 52) / 4);
-        this.hitsSoft17 = dealerHitsSoft17;
+        this._reshuffleAt = Math.floor((numDecks * 52) / 4);
+        this._hitsSoft17 = dealerHitsSoft17;
     }
 
     deal() {
-        if (!this.playing) {
+        if (!this._playing) {
             this._reset();
-            this.playing = true;
+            this._playing = true;
 
             this._playerDraw();
             this._playerDraw();
-
             this._dealerDraw();
 
-            const playerNatural = this._calcHand(this.playerHand).score === 21 && this.playerHand.length === 2;
-            if (playerNatural) {
+            // Prevent player from accidentally hitting if they have a natural
+            // blackjack.
+            if (this._isNatural(this._player)) {
                 this.stay();
             }
         }
     }
 
     hit() {
-        if (this.playing) {
+        if (this._playing) {
             this._playerDraw();
         }
     }
 
     stay() {
-        if (!this.playing) {
+        if (!this._playing) {
             return;
         }
 
-        this.playing = false;
+        this._playing = false;
 
-        const playerScore = this._calcHand(this.playerHand).score;
-        if (playerScore > 21) {
+        if (this._isBust(this._player)) {
             this._setOutcome('Player busted! Player loses.');
             return;
         }
 
-        const playerNatural = playerScore === 21 && this.playerHand.length === 2;
-
         this._dealerPlay();
-        const dealerScore = this._calcHand(this.dealerHand).score;
-        const dealerNatural = dealerScore === 21 && this.dealerHand.length === 2;
+        const dealerScore = this._dealer.score;
 
-        if (playerNatural && !dealerNatural) {
+        if (this._isNatural(this._player) && !this._isNatural(this._dealer)) {
             this._setOutcome('Player natural! Player wins.');
-        } else if (!playerNatural && dealerNatural) {
+        } else if (!this._isNatural(this._player) && this._isNatural(this._dealer)) {
             this._setOutcome('Dealer natural! Player loses.');
-        } else if (dealerScore > 21) {
+        } else if (this._isBust(this._dealer)) {
             this._setOutcome('Dealer busted! Player wins.');
-        } else if (playerScore > dealerScore) {
+        } else if (this._player.score > this._dealer.score) {
             this._setOutcome('Player wins.');
-        } else if (playerScore < dealerScore) {
+        } else if (this._player.score < this._dealer.score) {
             this._setOutcome('Player loses.');
         } else {
             this._setOutcome(`It's a draw!`);
@@ -73,88 +72,119 @@ class BlackjackGame {
 
     _dealerPlay() {
         this._dealerDraw();
-
-        const playerNatural = this._calcHand(this.playerHand).score === 21 && this.playerHand === 2;
-        let hand = this._calcHand(this.dealerHand);
-        const dealerNatural = hand.score === 21 && this.dealerHand.length === 2;
-        if (playerNatural || dealerNatural) {
+        if (this._isNatural(this._player) || this._isNatural(this._dealer)) {
             return;
         }
 
         while (true) {
-            const score = hand.score;
+            if (this._isBust(this._dealer)) {
+                break;
+            }
 
+            const score = this._dealer.score;
             if (score === 21) {
                 break;
             }
-            
+
             if (score < 17) {
                 this._dealerDraw();
-            } else if (this.hitsSoft17 && score === 17 && hand.aces > 0) {
+            } else if (this._hitsSoft17 && score === 17 && score !== this._dealer.lowScore) {
                 this._dealerDraw();
             } else {
                 break;
             }
-
-            hand = this._calcHand(this.dealerHand);
         }
     }
 
-    // playerDraw draws a card for the player, and ends the game
+    // _playerDraw draws a card for the player, and ends the game
     // if the player busts.
     _playerDraw() {
-        this.playerHand.push(this.deck.draw());
-        this._updatePlayerGraphics();
-        if (this._isBust(this.playerHand)) {
+        this._player.drawFrom(this._deck);
+        this._updateHandGraphics(this._player, '#playerHand');
+        if (this._isBust(this._player)) {
             this.stay();
         }
     }
 
-    // dealerDraw draws a card for the dealer.
+    // _dealerDraw draws a card for the dealer.
     _dealerDraw() {
-        this.dealerHand.push(this.deck.draw());
-        this._updateDealerGraphics();
+        this._dealer.drawFrom(this._deck);
+        this._updateHandGraphics(this._dealer, '#dealerHand');
     }
 
-    _updatePlayerGraphics() {
-        this._updateGraphics("Player", this.playerHand, '#playerHand');
-    }
-
-    _updateDealerGraphics() {
-        this._updateGraphics("Dealer", this.dealerHand, '#dealerHand');
-    }
-
-    _updateGraphics(owner, hand, selector) {
-        const html = this._generateHandHtml(owner, hand);
+    // _updateHandGraphics updates the element specified by the selector with the
+    // name, score and cards of the hand.
+    _updateHandGraphics(hand, selector) {
+        const html = this._generateHandHtml(hand);
         $(selector).html(html);
     }
 
-    // generateHandHtml generates HTML to display the score and cards of a hand,
+    // _generateHandHtml generates HTML to display the score and cards of a hand,
     // displaying the hard value of the hand in parentheses if it's a soft hand.
-    _generateHandHtml(owner, hand) {
-        const calcHand = this._calcHand(hand);
-        const lowScore = calcHand.score !== calcHand.lowScore ? ` (${calcHand.lowScore})` : '';
-        let html = `${owner}'s hand: ${calcHand.score}${lowScore}<br/>`;
-        for (const card of hand) {
+    _generateHandHtml(hand) {
+        const lowScore = hand.score !== hand.lowScore ? ` (${hand.lowScore})` : '';
+        let html = `${hand.name}'s hand: ${hand.score}${lowScore}<br/>`;
+        for (const card of hand.cards) {
             html += `<img class="card" src="${card.imagePath()}"/>`;
         }
         return html;
-    }
-
-    _isBust(hand) {
-        return this._calcHand(hand).score > 21; 
     }
 
     _setOutcome(str) {
         $('#mainLog').text(str);
     }
 
-    _calcHand(hand) {
+    _reset() {
+        this._playing = false;
+        this._player.reset();
+        this._dealer.reset();
+        if (this._deck.cards.length <= this._reshuffleAt) {
+            this._deck.reset();
+        }
+
+        this._updateHandGraphics(this._player, '#playerHand');
+        this._updateHandGraphics(this._dealer, '#dealerHand');
+        this._setOutcome('');
+    }
+
+    _isNatural(hand) {
+        return hand.score === 21 && hand.cards.length === 2;
+    }
+
+    _isBust(hand) {
+        return hand.score > 21;
+    }
+}
+
+window.BlackjackGame = BlackjackGame;
+
+class Hand {
+    constructor(name) {
+        this.name = name;
+        this.cards = [];
+        this.isBust = false;
+        this.isNatural = false;
+        this.score = 0;
+        this.lowScore = 0;
+    }
+
+    drawFrom(deck) {
+        this.cards.push(deck.draw());
+        this._update();
+    }
+
+    reset() {
+        this.cards = [];
+        this._update();
+    }
+
+    // _update updates the hand's state.
+    _update() {
         let aces = 0;
         let score = 0;
         let lowScore = 0;
         // Tally up the score, keeping track of how many aces there are.
-        for (const card of hand) {
+        for (const card of this.cards) {
             switch (card.value) {
                 case 11: case 12: case 13:
                     score += 10;
@@ -176,24 +206,11 @@ class BlackjackGame {
             score -= 10;
             aces--;
         }
-        return { score, lowScore, aces };
-    }
 
-    _reset() {
-        this.playing = false;
-        this.playerHand = [];
-        this.dealerHand = [];
-        if (this.deck.cards.length <= this.reshuffleAt) {
-            this.deck.reset();
-        }
-
-        this._updatePlayerGraphics();
-        this._updateDealerGraphics();
-        this._setOutcome('');
+        this.score = score;
+        this.lowScore = lowScore;
     }
 }
-
-window.BlackjackGame = BlackjackGame;
 
 // Deck represents a single or multiple decks of cards, with validation
 // and an easy way to shuffle it.
