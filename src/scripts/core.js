@@ -28,12 +28,6 @@ class BlackjackGame {
         this._playerDraw();
         this._playerDraw();
         this._dealerDraw();
-
-        // Prevent player from accidentally hitting if they have a natural
-        // blackjack.
-        if (this._isNatural(this._player)) {
-            this.stay();
-        }
     }
 
     hit() {
@@ -103,7 +97,7 @@ class BlackjackGame {
     _playerDraw() {
         this._player.drawFrom(this._deck);
         this._updateHandGraphics(this._player, '#playerHand');
-        if (this._isBust(this._player)) {
+        if (this._isBust(this._player) || this._player.score === 21) {
             this.stay();
         }
     }
