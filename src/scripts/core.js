@@ -140,7 +140,7 @@ class BlackjackGame {
         this._playing = false;
         this._player.reset();
         this._dealer.reset();
-        if (this._deck.cards.length <= this._reshuffleAt) {
+        if (this._deck.count() <= this._reshuffleAt) {
             this._deck.reset();
         }
 
@@ -220,22 +220,26 @@ class Deck {
     constructor(numDecks = 1) {
         this._validate(numDecks);
 
-        this.cards = [];
-        this.drawn = [];
+        this._cards = [];
 
         const suits = Object.values(Card.SUITS);
         for (let deck = 0; deck < numDecks; deck++) {
             for (let value = 2; value <= 14; value++) {
                 for (const suit of suits) {
-                    this.cards.push(new Card(value, suit));
+                    this._cards.push(new Card(value, suit));
                 }
             }
         }
+
+        this.nextCardIdx = this._cards.length - 1;
+    }
+
+    count() {
+        return this.nextCardIdx + 1;
     }
 
     reset() {
-        this.cards.push(...this.drawn);
-        this.drawn = [];
+        this.nextCardIdx = this._cards.length - 1;
         this.shuffle();
     }
 
@@ -250,24 +254,24 @@ class Deck {
 
         for (let i = 0; i < numTimes; i++) {
             // Fisher-Yates shuffle: https://medium.com/@oldwestaction/randomness-is-hard-e085decbcbb2
-            for (let i = this.cards.length - 1; i > 0; i--) {
+            for (let i = this.nextCardIdx; i > 0; i--) {
                 // + 1 because Math.random generates [0, 1)
                 // [ = inclusive, ) = exclusive, and we want the range [0, i].
                 const swapIdx = Math.floor(Math.random() * (i + 1)); 
-                const card = this.cards[i];
-                this.cards[i] = this.cards[swapIdx];
-                this.cards[swapIdx] = card;
+                const card = this._cards[i];
+                this._cards[i] = this._cards[swapIdx];
+                this._cards[swapIdx] = card;
             }
         }
     }
 
-    // draw draws a card, resetting the deck if it runs out of cards.
+    // draw draws a card, resetting the deck if it has run out of cards.
     draw() {
-        if (this.cards.length === 0) {
+        if (this.count() === 0) {
             this.reset();
         }
-        const card = this.cards.pop();
-        this.drawn.push(card);
+        const card = this._cards[this.nextCardIdx];
+        this.nextCardIdx--;
         return card;
     }
 
