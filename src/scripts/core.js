@@ -18,26 +18,30 @@ class BlackjackGame {
     }
 
     deal() {
-        if (!this._playing) {
-            this._reset();
-            this._playing = true;
+        if (this._playing) {
+            return;
+        }
+        
+        this._reset();
+        this._playing = true;
 
-            this._playerDraw();
-            this._playerDraw();
-            this._dealerDraw();
+        this._playerDraw();
+        this._playerDraw();
+        this._dealerDraw();
 
-            // Prevent player from accidentally hitting if they have a natural
-            // blackjack.
-            if (this._isNatural(this._player)) {
-                this.stay();
-            }
+        // Prevent player from accidentally hitting if they have a natural
+        // blackjack.
+        if (this._isNatural(this._player)) {
+            this.stay();
         }
     }
 
     hit() {
-        if (this._playing) {
-            this._playerDraw();
+        if (!this._playing) {
+            return;
         }
+
+        this._playerDraw();
     }
 
     stay() {
@@ -84,9 +88,7 @@ class BlackjackGame {
             const score = this._dealer.score;
             if (score === 21) {
                 break;
-            }
-
-            if (score < 17) {
+            } else if (score < 17) {
                 this._dealerDraw();
             } else if (this._hitsSoft17 && score === 17 && score !== this._dealer.lowScore) {
                 this._dealerDraw();
